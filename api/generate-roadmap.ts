@@ -87,7 +87,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     });
 
-    const text = typeof response.text === 'function' ? response.text() : response.text;
+    const text = response.text;
     const roadmap = JSON.parse(text);
     roadmap.opportunityId = opportunity.id;
     
