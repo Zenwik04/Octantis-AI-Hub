@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import { Header } from './components/Header';
 import { ChallengeForm } from './components/ChallengeForm';
 import { OpportunityExploration } from './components/OpportunityExploration';
@@ -14,15 +14,17 @@ const App: React.FC = () => {
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
   const [businessCaseData, setBusinessCaseData] = useState<BusinessCaseData | null>(null);
   const [roadmapData, setRoadmapData] = useState<RoadmapData | null>(null);
-  
+   
   const [isLoading, setIsLoading] = useState(false);
 
+  // 1. GENERAR OPORTUNIDADES
   const handleGenerateOpportunities = async (data: ChallengeState) => {
     setIsLoading(true);
     setChallengeData(data);
 
     try {
-      const ai = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
+      // CORRECCIÓN: Usamos GoogleGenAI con llaves {} y la variable de entorno correcta
+      const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
       
       const prompt = `
         Genera 5 oportunidades de innovación estratégica para un reto de "${data.scope}".
@@ -38,21 +40,21 @@ const App: React.FC = () => {
       `;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-2.0-flash', // Usamos un modelo estable
         contents: prompt,
         config: {
           responseMimeType: "application/json",
           responseSchema: {
-            type: Type.ARRAY,
+            type: "ARRAY",
             items: {
-              type: Type.OBJECT,
+              type: "OBJECT",
               properties: {
-                id: { type: Type.STRING },
-                title: { type: Type.STRING },
-                description: { type: Type.STRING, description: "Breve descripción de 2 líneas" },
-                type: { type: Type.STRING, enum: ["Incremental", "Radical"] },
-                impactScore: { type: Type.NUMBER, description: "0 to 100" },
-                feasibilityScore: { type: Type.NUMBER, description: "0 to 100" },
+                id: { type: "STRING" },
+                title: { type: "STRING" },
+                description: { type: "STRING", description: "Breve descripción de 2 líneas" },
+                type: { type: "STRING", enum: ["Incremental", "Radical"] },
+                impactScore: { type: "NUMBER", description: "0 to 100" },
+                feasibilityScore: { type: "NUMBER", description: "0 to 100" },
               },
               required: ["id", "title", "description", "type", "impactScore", "feasibilityScore"]
             }
@@ -61,7 +63,9 @@ const App: React.FC = () => {
       });
 
       if (response.text) {
-        const generatedOpportunities = JSON.parse(response.text) as Opportunity[];
+        // En la versión nueva a veces es response.text() function o property, aseguramos string
+        const text = typeof response.text === 'function' ? response.text() : response.text; 
+        const generatedOpportunities = JSON.parse(text) as Opportunity[];
         setOpportunities(generatedOpportunities);
         setView('exploration');
       }
@@ -73,6 +77,7 @@ const App: React.FC = () => {
     }
   };
 
+  // 2. PRIORIZAR (BUSINESS CASE)
   const handlePrioritize = async (id: string) => {
     const opp = opportunities.find(o => o.id === id);
     if (!opp || !challengeData) return;
@@ -81,7 +86,9 @@ const App: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      // CORRECCIÓN: Misma corrección de clave y constructor
+      const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
+      
       const prompt = `
         Actúa como un Consultor Estratégico Senior (nivel McKinsey/BCG) para Octantis.
         Genera un 'Business Case Express' de alto nivel para la oportunidad: "${opp.title}".
@@ -112,34 +119,33 @@ const App: React.FC = () => {
            - Resumen ejecutivo de 1 línea justificando.
       `;
 
-      // Use gemini-3-pro-preview for complex strategic reasoning
       const response = await ai.models.generateContent({
-        model: 'gemini-3-pro-preview',
+        model: 'gemini-2.0-flash',
         contents: prompt,
         config: {
           responseMimeType: "application/json",
           responseSchema: {
-            type: Type.OBJECT,
+            type: "OBJECT",
             properties: {
-                opportunityId: { type: Type.STRING },
-                marketSizeScore: { type: Type.NUMBER, description: "Score 1-10" },
-                techFeasibilityScore: { type: Type.NUMBER, description: "Score 1-10" },
-                competitiveAdvantageScore: { type: Type.NUMBER, description: "Score 1-10" },
-                strategicMoatScore: { type: Type.NUMBER, description: "Score 1-10" },
+                opportunityId: { type: "STRING" },
+                marketSizeScore: { type: "NUMBER", description: "Score 1-10" },
+                techFeasibilityScore: { type: "NUMBER", description: "Score 1-10" },
+                competitiveAdvantageScore: { type: "NUMBER", description: "Score 1-10" },
+                strategicMoatScore: { type: "NUMBER", description: "Score 1-10" },
                 risks: { 
-                  type: Type.OBJECT,
+                  type: "OBJECT",
                   properties: {
-                    technical: { type: Type.STRING },
-                    regulatory: { type: Type.STRING },
-                    adoption: { type: Type.STRING }
+                    technical: { type: "STRING" },
+                    regulatory: { type: "STRING" },
+                    adoption: { type: "STRING" }
                   },
                   required: ["technical", "regulatory", "adoption"]
                 },
-                estimatedInvestment: { type: Type.STRING },
-                ebitdaImpact: { type: Type.STRING },
-                paybackPeriod: { type: Type.STRING },
-                verdict: { type: Type.STRING, enum: ["Quick Win", "Strategic Bet"] },
-                summary: { type: Type.STRING }
+                estimatedInvestment: { type: "STRING" },
+                ebitdaImpact: { type: "STRING" },
+                paybackPeriod: { type: "STRING" },
+                verdict: { type: "STRING", enum: ["Quick Win", "Strategic Bet"] },
+                summary: { type: "STRING" }
             },
             required: [
               "marketSizeScore", "techFeasibilityScore", "competitiveAdvantageScore", "strategicMoatScore",
@@ -150,8 +156,9 @@ const App: React.FC = () => {
       });
 
       if (response.text) {
-        const data = JSON.parse(response.text) as BusinessCaseData;
-        data.opportunityId = id; // Ensure ID match
+        const text = typeof response.text === 'function' ? response.text() : response.text;
+        const data = JSON.parse(text) as BusinessCaseData;
+        data.opportunityId = id; 
         setBusinessCaseData(data);
         setView('businessCase');
       }
@@ -164,12 +171,15 @@ const App: React.FC = () => {
     }
   };
 
+  // 3. GENERAR ROADMAP
   const handleGenerateRoadmap = async () => {
     if (!selectedOpportunity || !businessCaseData || !challengeData) return;
     
     setIsLoading(true);
     try {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        // CORRECCIÓN: Misma corrección de clave y constructor
+        const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
+        
         const prompt = `
           Actúa como un Consultor de Implementación Senior de Octantis.
           Genera un 'Roadmap de Implementación' detallado para el proyecto: "${selectedOpportunity.title}".
@@ -192,54 +202,54 @@ const App: React.FC = () => {
         `;
 
         const response = await ai.models.generateContent({
-            model: 'gemini-3-pro-preview',
+            model: 'gemini-2.0-flash',
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
                 responseSchema: {
-                    type: Type.OBJECT,
+                    type: "OBJECT",
                     properties: {
-                        opportunityId: { type: Type.STRING },
+                        opportunityId: { type: "STRING" },
                         phases: {
-                            type: Type.OBJECT,
+                            type: "OBJECT",
                             properties: {
                                 validation: {
-                                    type: Type.OBJECT,
+                                    type: "OBJECT",
                                     properties: {
-                                        phaseName: { type: Type.STRING, enum: ["Validación Lean"] },
-                                        duration: { type: Type.STRING },
-                                        tasks: { type: Type.ARRAY, items: { type: Type.STRING } },
-                                        kpi: { type: Type.STRING },
-                                        resources: { type: Type.STRING }
+                                        phaseName: { type: "STRING", enum: ["Validación Lean"] },
+                                        duration: { type: "STRING" },
+                                        tasks: { type: "ARRAY", items: { type: "STRING" } },
+                                        kpi: { type: "STRING" },
+                                        resources: { type: "STRING" }
                                     },
                                     required: ["duration", "tasks", "kpi", "resources"]
                                 },
                                 pilot: {
-                                    type: Type.OBJECT,
+                                    type: "OBJECT",
                                     properties: {
-                                        phaseName: { type: Type.STRING, enum: ["Piloto Tecnológico"] },
-                                        duration: { type: Type.STRING },
-                                        tasks: { type: Type.ARRAY, items: { type: Type.STRING } },
-                                        kpi: { type: Type.STRING },
-                                        resources: { type: Type.STRING }
+                                        phaseName: { type: "STRING", enum: ["Piloto Tecnológico"] },
+                                        duration: { type: "STRING" },
+                                        tasks: { type: "ARRAY", items: { type: "STRING" } },
+                                        kpi: { type: "STRING" },
+                                        resources: { type: "STRING" }
                                     },
                                     required: ["duration", "tasks", "kpi", "resources"]
                                 },
                                 scaling: {
-                                    type: Type.OBJECT,
+                                    type: "OBJECT",
                                     properties: {
-                                        phaseName: { type: Type.STRING, enum: ["Despliegue y Escalado"] },
-                                        duration: { type: Type.STRING },
-                                        tasks: { type: Type.ARRAY, items: { type: Type.STRING } },
-                                        kpi: { type: Type.STRING },
-                                        resources: { type: Type.STRING }
+                                        phaseName: { type: "STRING", enum: ["Despliegue y Escalado"] },
+                                        duration: { type: "STRING" },
+                                        tasks: { type: "ARRAY", items: { type: "STRING" } },
+                                        kpi: { type: "STRING" },
+                                        resources: { type: "STRING" }
                                     },
                                     required: ["duration", "tasks", "kpi", "resources"]
                                 }
                             },
                             required: ["validation", "pilot", "scaling"]
                         },
-                        nextSteps48h: { type: Type.ARRAY, items: { type: Type.STRING } }
+                        nextSteps48h: { type: "ARRAY", items: { type: "STRING" } }
                     },
                     required: ["phases", "nextSteps48h"]
                 }
@@ -247,9 +257,10 @@ const App: React.FC = () => {
         });
 
         if (response.text) {
-            const data = JSON.parse(response.text) as RoadmapData;
+            const text = typeof response.text === 'function' ? response.text() : response.text;
+            const data = JSON.parse(text) as RoadmapData;
             data.opportunityId = selectedOpportunity.id;
-            // Add static titles for UI consistency if model omits them or varies slightly
+            
             data.phases.validation.phaseName = "Validación Lean";
             data.phases.pilot.phaseName = "Piloto Tecnológico";
             data.phases.scaling.phaseName = "Despliegue y Escalado";
@@ -286,7 +297,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen w-full bg-octantis-950 text-slate-200 relative overflow-hidden font-sans print:bg-white print:text-black print:overflow-visible">
-      {/* Background ambient elements - HIDDEN ON PRINT */}
       <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-blue-900/10 to-transparent pointer-events-none print:hidden"></div>
       <div className="fixed top-[-10%] right-[-5%] w-[500px] h-[500px] bg-blue-600/5 rounded-full blur-[100px] pointer-events-none print:hidden"></div>
       <div className="fixed bottom-[-10%] left-[-5%] w-[500px] h-[500px] bg-cyan-600/5 rounded-full blur-[100px] pointer-events-none print:hidden"></div>
@@ -295,7 +305,6 @@ const App: React.FC = () => {
       
       <main className="container mx-auto px-4 py-8 md:py-12 relative z-10 print:py-0 print:px-8">
         
-        {/* Loading Overlay */}
         {isLoading && (
             <div className="fixed inset-0 z-50 bg-octantis-950/80 backdrop-blur-sm flex flex-col items-center justify-center print:hidden">
                 <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
