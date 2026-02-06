@@ -77,7 +77,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     });
 
-    const text = typeof response.text === 'function' ? response.text() : response.text;
+    const text = response.text;
     const businessCase = JSON.parse(text);
     businessCase.opportunityId = opportunity.id;
 
