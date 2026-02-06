@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { GoogleGenAI } from "@google/genai";
 import { Header } from './components/Header';
 import { ChallengeForm } from './components/ChallengeForm';
 import { OpportunityExploration } from './components/OpportunityExploration';
