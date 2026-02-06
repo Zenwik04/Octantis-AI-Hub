@@ -22,52 +22,25 @@ const App: React.FC = () => {
     setChallengeData(data);
 
     try {
-      // CORRECCIÓN: Usamos GoogleGenAI con llaves {} y la variable de entorno correcta
-      const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
-      
-      const prompt = `
-        Genera 5 oportunidades de innovación estratégica para un reto de "${data.scope}".
-        Descripción del reto: "${data.description}".
-        
-        Configuración de inversor:
-        - Riesgo aceptable: ${data.criteria.risk}/100
-        - Horizonte temporal: ${data.criteria.timeHorizon}/100
-        - Madurez tecnológica deseada: ${data.criteria.techMaturity}/100
-
-        Para cada oportunidad, determina si es de disrupción 'Incremental' o 'Radical' basándote en el riesgo y madurez.
-        Genera scores numéricos (0-100) para 'impactScore' (Impacto) y 'feasibilityScore' (Viabilidad Técnica) que sean coherentes con la descripción.
-      `;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash', // Usamos un modelo estable
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: "ARRAY",
-            items: {
-              type: "OBJECT",
-              properties: {
-                id: { type: "STRING" },
-                title: { type: "STRING" },
-                description: { type: "STRING", description: "Breve descripción de 2 líneas" },
-                type: { type: "STRING", enum: ["Incremental", "Radical"] },
-                impactScore: { type: "NUMBER", description: "0 to 100" },
-                feasibilityScore: { type: "NUMBER", description: "0 to 100" },
-              },
-              required: ["id", "title", "description", "type", "impactScore", "feasibilityScore"]
-            }
-          }
-        }
+      const response = await fetch('/api/generate-opportunities', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          scope: data.scope,
+          description: data.description,
+          criteria: data.criteria
+        }),
       });
 
-      if (response.text) {
-        // En la versión nueva a veces es response.text() function o property, aseguramos string
-        const text = typeof response.text === 'function' ? response.text() : response.text; 
-        const generatedOpportunities = JSON.parse(text) as Opportunity[];
-        setOpportunities(generatedOpportunities);
-        setView('exploration');
+      if (!response.ok) {
+        throw new Error('Error al generar oportunidades');
       }
+
+      const result = await response.json();
+      setOpportunities(result.opportunities);
+      setView('exploration');
     } catch (error) {
       console.error("Error generating opportunities:", error);
       alert("Hubo un error al generar las oportunidades. Por favor intenta de nuevo.");
@@ -85,88 +58,30 @@ const App: React.FC = () => {
     setIsLoading(true);
 
     try {
-      // CORRECCIÓN: Misma corrección de clave y constructor
-      const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
-      
-      const prompt = `
-        Actúa como un Consultor Estratégico Senior (nivel McKinsey/BCG) para Octantis.
-        Genera un 'Business Case Express' de alto nivel para la oportunidad: "${opp.title}".
-        
-        Contexto: "${challengeData.scope}" - "${challengeData.description}".
-        Descripción oportunidad: "${opp.description}".
-
-        Analiza y genera los siguientes datos estructurados:
-        
-        1. MÉTRICAS (1-10):
-           - Mercado Potencial
-           - Factibilidad Tecnológica
-           - Ventaja Competitiva
-           - **Estratégico / Foso Defensivo** (Strategic Moat)
-
-        2. RIESGOS CLASIFICADOS (Breves, 1 frase):
-           - Técnico
-           - Regulatorio
-           - De Adopción
-
-        3. FINANCIERO:
-           - Inversión Estimada (rango)
-           - Impacto EBITDA (ej: "+15%")
-           - **Payback Period** (ej: "18 meses")
-
-        4. VERDICTO DEL CONSULTOR:
-           - Clasifica ÚNICAMENTE como "Quick Win" o "Strategic Bet".
-           - Resumen ejecutivo de 1 línea justificando.
-      `;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: "OBJECT",
-            properties: {
-                opportunityId: { type: "STRING" },
-                marketSizeScore: { type: "NUMBER", description: "Score 1-10" },
-                techFeasibilityScore: { type: "NUMBER", description: "Score 1-10" },
-                competitiveAdvantageScore: { type: "NUMBER", description: "Score 1-10" },
-                strategicMoatScore: { type: "NUMBER", description: "Score 1-10" },
-                risks: { 
-                  type: "OBJECT",
-                  properties: {
-                    technical: { type: "STRING" },
-                    regulatory: { type: "STRING" },
-                    adoption: { type: "STRING" }
-                  },
-                  required: ["technical", "regulatory", "adoption"]
-                },
-                estimatedInvestment: { type: "STRING" },
-                ebitdaImpact: { type: "STRING" },
-                paybackPeriod: { type: "STRING" },
-                verdict: { type: "STRING", enum: ["Quick Win", "Strategic Bet"] },
-                summary: { type: "STRING" }
-            },
-            required: [
-              "marketSizeScore", "techFeasibilityScore", "competitiveAdvantageScore", "strategicMoatScore",
-              "risks", "estimatedInvestment", "ebitdaImpact", "paybackPeriod", "verdict", "summary"
-            ]
-          }
-        }
+      const response = await fetch('/api/generate-business-case', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          opportunity: opp,
+          challengeData: challengeData
+        }),
       });
 
-      if (response.text) {
-        const text = typeof response.text === 'function' ? response.text() : response.text;
-        const data = JSON.parse(text) as BusinessCaseData;
-        data.opportunityId = id; 
-        setBusinessCaseData(data);
-        setView('businessCase');
+      if (!response.ok) {
+        throw new Error('Error al generar business case');
       }
 
+      const result = await response.json();
+      setBusinessCaseData(result.businessCase);
+      setView('businessCase');
+
     } catch (error) {
-        console.error("Error generating business case:", error);
-        alert("Error generando el análisis estratégico.");
+      console.error("Error generating business case:", error);
+      alert("Error generando el análisis estratégico.");
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -176,103 +91,31 @@ const App: React.FC = () => {
     
     setIsLoading(true);
     try {
-        // CORRECCIÓN: Misma corrección de clave y constructor
-        const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
-        
-        const prompt = `
-          Actúa como un Consultor de Implementación Senior de Octantis.
-          Genera un 'Roadmap de Implementación' detallado para el proyecto: "${selectedOpportunity.title}".
-          
-          Contexto del Business Case: "${businessCaseData.summary}".
-          Reto original: "${challengeData.description}".
+      const response = await fetch('/api/generate-roadmap', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          opportunity: selectedOpportunity,
+          businessCaseData: businessCaseData,
+          challengeData: challengeData
+        }),
+      });
 
-          Estructura el plan en estas 3 Fases obligatorias:
-          1. Fase de Validación Lean (Propuesta de valor, cliente).
-          2. Piloto de Validación Tecnológica (MVP, pruebas reales).
-          3. Despliegue y Escalado.
+      if (!response.ok) {
+        throw new Error('Error al generar roadmap');
+      }
 
-          Para cada fase, genera:
-          - Duración estimada (ej: "3 meses").
-          - 2 Tareas críticas muy específicas.
-          - 1 Hito de validación principal (KPI clave).
-          - Recursos clave (ej: "Partner de Cloud", "Equipo Data Science", "CapEx $50k").
-
-          Finalmente, añade una lista de "Próximos Pasos (Próximas 48h)" con 2 acciones inmediatas para el consultor.
-        `;
-
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: "OBJECT",
-                    properties: {
-                        opportunityId: { type: "STRING" },
-                        phases: {
-                            type: "OBJECT",
-                            properties: {
-                                validation: {
-                                    type: "OBJECT",
-                                    properties: {
-                                        phaseName: { type: "STRING", enum: ["Validación Lean"] },
-                                        duration: { type: "STRING" },
-                                        tasks: { type: "ARRAY", items: { type: "STRING" } },
-                                        kpi: { type: "STRING" },
-                                        resources: { type: "STRING" }
-                                    },
-                                    required: ["duration", "tasks", "kpi", "resources"]
-                                },
-                                pilot: {
-                                    type: "OBJECT",
-                                    properties: {
-                                        phaseName: { type: "STRING", enum: ["Piloto Tecnológico"] },
-                                        duration: { type: "STRING" },
-                                        tasks: { type: "ARRAY", items: { type: "STRING" } },
-                                        kpi: { type: "STRING" },
-                                        resources: { type: "STRING" }
-                                    },
-                                    required: ["duration", "tasks", "kpi", "resources"]
-                                },
-                                scaling: {
-                                    type: "OBJECT",
-                                    properties: {
-                                        phaseName: { type: "STRING", enum: ["Despliegue y Escalado"] },
-                                        duration: { type: "STRING" },
-                                        tasks: { type: "ARRAY", items: { type: "STRING" } },
-                                        kpi: { type: "STRING" },
-                                        resources: { type: "STRING" }
-                                    },
-                                    required: ["duration", "tasks", "kpi", "resources"]
-                                }
-                            },
-                            required: ["validation", "pilot", "scaling"]
-                        },
-                        nextSteps48h: { type: "ARRAY", items: { type: "STRING" } }
-                    },
-                    required: ["phases", "nextSteps48h"]
-                }
-            }
-        });
-
-        if (response.text) {
-            const text = typeof response.text === 'function' ? response.text() : response.text;
-            const data = JSON.parse(text) as RoadmapData;
-            data.opportunityId = selectedOpportunity.id;
-            
-            data.phases.validation.phaseName = "Validación Lean";
-            data.phases.pilot.phaseName = "Piloto Tecnológico";
-            data.phases.scaling.phaseName = "Despliegue y Escalado";
-            
-            setRoadmapData(data);
-            setView('roadmap');
-        }
+      const result = await response.json();
+      setRoadmapData(result.roadmap);
+      setView('roadmap');
 
     } catch (error) {
-        console.error("Error generating roadmap:", error);
-        alert("Error generando el roadmap.");
+      console.error("Error generating roadmap:", error);
+      alert("Error generando el roadmap.");
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
   };
 
